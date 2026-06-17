@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Seeing black — the three-card problem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#ECEAE3; --paper-2:#E3E0D6; --paper-edge:#D6D2C6;
+    --baize:#2E5A4E; --baize-2:#244A40; --baize-line:#3A6759;
+    --ink:#1B1A18; --ink-soft:#54514A;
+    --ivory:#FAF7EF; --brass:#C0892C; --brass-soft:#E7CF9B;
+    --grey:#9A968C;
+    --font-display:"Space Grotesk",system-ui,-apple-system,sans-serif;
+    --font-body:"Spectral",Georgia,"Times New Roman",serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+    --maxw:880px;
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--font-body); font-size:17px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  .wrap{
+    max-width:var(--maxw); margin:0 auto; padding:clamp(20px,4vw,48px) clamp(16px,4vw,32px) 64px;
+    display:flex; flex-direction:column; gap:clamp(28px,5vw,52px);
+  }
+
+  /* ---------- masthead ---------- */
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--brass); margin:0 0 14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:""; width:26px; height:1px; background:var(--brass); display:inline-block;}
+  .title{
+    font-family:var(--font-display); font-weight:600; line-height:.96;
+    font-size:clamp(44px,9vw,84px); letter-spacing:-.02em; margin:0;
+  }
+  .title em{font-style:normal; color:var(--baize);}
+  .thesis{
+    margin:18px 0 0; max-width:48ch; font-size:clamp(17px,2.4vw,20px);
+    color:var(--ink-soft);
+  }
+  .thesis b{color:var(--ink); font-weight:600;}
+
+  /* ---------- baize table ---------- */
+  .table-panel{
+    background:
+      radial-gradient(120% 100% at 50% -10%, var(--baize) 0%, var(--baize-2) 100%);
+    border-radius:18px; padding:clamp(20px,4vw,34px);
+    color:var(--ivory);
+    box-shadow:0 1px 0 rgba(255,255,255,.18) inset, 0 24px 48px -28px rgba(20,40,34,.7),
+               0 2px 0 var(--paper-edge);
+    position:relative; overflow:hidden;
+  }
+  /* faint felt weave */
+  .table-panel::before{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.025) 0 2px, transparent 2px 5px),
+      repeating-linear-gradient(-45deg, rgba(0,0,0,.04) 0 2px, transparent 2px 5px);
+  }
+  .table-inner{position:relative; z-index:1;}
+
+  .stage{
+    position:relative; height:230px; margin:0 auto;
+    display:flex; align-items:center; justify-content:center;
+    perspective:1100px;
+  }
+  /* drawstring pouch */
+  .bag{
+    position:absolute; left:6px; bottom:6px; width:96px; height:104px; z-index:1;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,.3));
+  }
+  .bag svg{display:block; width:100%; height:100%;}
+  .bag-label{
+    position:absolute; left:0; bottom:-22px; width:96px; text-align:center;
+    font-family:var(--font-mono); font-size:10.5px; letter-spacing:.12em;
+    text-transform:uppercase; color:rgba(250,247,239,.55);
+  }
+
+  /* the active card */
+  .card{
+    width:118px; height:166px; position:relative;
+    transform-style:preserve-3d; transition:transform .42s cubic-bezier(.4,.05,.2,1);
+    will-change:transform;
+  }
+  .card.is-drawing{animation:rise .42s cubic-bezier(.2,.7,.2,1);}
+  @keyframes rise{
+    0%{transform:translateY(46px) scale(.82) rotateY(180deg); opacity:.0;}
+    40%{opacity:1;}
+    100%{transform:translateY(0) scale(1) rotateY(180deg);}
+  }
+  .face{
+    position:absolute; inset:0; border-radius:11px; backface-visibility:hidden;
+    display:flex; align-items:center; justify-content:center;
+    border:1.5px solid rgba(27,26,24,.18);
+    box-shadow:0 10px 22px -10px rgba(0,0,0,.55);
+  }
+  .face .pip{
+    width:22px; height:22px; border-radius:50%;
+  }
+  .face--white{background:var(--ivory);}
+  .face--white .pip{background:var(--paper-edge);}
+  .face--black{background:#121110; transform:rotateY(180deg); border-color:#000;}
+  .face--black .pip{background:#2c2a27; box-shadow:0 0 0 1px rgba(255,255,255,.06);}
+  /* show-state: rotate to reveal whichever face is "up" */
+  .card[data-up="W"]{transform:rotateY(0deg);}
+  .card[data-up="B"]{transform:rotateY(180deg);}
+
+  /* reverse peek tag */
+  .peek{
+    position:absolute; top:50%; left:calc(50% + 90px); transform:translateY(-50%);
+    display:flex; flex-direction:column; align-items:flex-start; gap:6px;
+    opacity:0; transition:opacity .25s ease; pointer-events:none; white-space:nowrap;
+  }
+  .peek.show{opacity:1;}
+  .peek .pk-label{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:rgba(250,247,239,.6);}
+  .peek .pk-card{width:34px; height:48px; border-radius:6px; border:1.5px solid rgba(255,255,255,.25);}
+  .peek .pk-card.b{background:#121110;}
+  .peek .pk-card.w{background:var(--ivory);}
+  .peek .pk-verdict{font-family:var(--font-display); font-weight:600; font-size:13px;}
+  .peek .pk-verdict.hit{color:var(--brass-soft);}
+  .peek .pk-verdict.miss{color:#cfcabd;}
+
+  /* discard marker for white draws */
+  .discard{
+    position:absolute; right:8px; top:14px; text-align:right;
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.08em;
+    color:rgba(250,247,239,.5); line-height:1.5;
+  }
+  .discard .x{font-size:20px; color:rgba(250,247,239,.7);}
+
+  /* counters */
+  .counters{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px;
+    border-top:1px solid rgba(255,255,255,.14); padding-top:18px;
+  }
+  .counter .k{
+    font-family:var(--font-mono); font-size:10.5px; letter-spacing:.12em;
+    text-transform:uppercase; color:rgba(250,247,239,.55); margin-bottom:4px;
+  }
+  .counter .v{
+    font-family:var(--font-mono); font-weight:500; font-size:clamp(22px,4vw,30px);
+    font-variant-numeric:tabular-nums; letter-spacing:-.01em;
+  }
+  .counter:nth-child(3) .v{color:var(--brass-soft);}
+
+  /* estimate bar */
+  .estimate{margin-top:22px;}
+  .estimate .row{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .estimate .lab{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:rgba(250,247,239,.6);
+  }
+  .estimate .num{
+    font-family:var(--font-mono); font-weight:600; font-variant-numeric:tabular-nums;
+    font-size:clamp(30px,6vw,44px); letter-spacing:-.02em; line-height:1;
+  }
+  .track{
+    position:relative; height:12px; margin-top:14px; border-radius:999px;
+    background:rgba(0,0,0,.28); overflow:visible;
+  }
+  .track .fill{
+    position:absolute; left:0; top:0; bottom:0; width:0%;
+    background:linear-gradient(90deg,#dcc99a,var(--brass)); border-radius:999px;
+    transition:width .3s cubic-bezier(.3,.7,.3,1);
+  }
+  .track .target{
+    position:absolute; top:-7px; bottom:-7px; left:66.667%; width:2px;
+    background:var(--brass-soft);
+  }
+  .track .target::after{
+    content:"2⁄3"; position:absolute; top:-19px; left:50%; transform:translateX(-50%);
+    font-family:var(--font-mono); font-size:10px; color:var(--brass-soft); letter-spacing:.05em;
+  }
+  .target-note{
+    margin-top:16px; font-family:var(--font-mono); font-size:11.5px;
+    color:rgba(250,247,239,.55); letter-spacing:.02em;
+  }
+
+  /* controls */
+  .controls{display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:22px;}
+  button{
+    font-family:var(--font-display); font-weight:600; font-size:14px;
+    color:var(--ink); background:var(--ivory); border:none; cursor:pointer;
+    padding:10px 16px; border-radius:9px; letter-spacing:.01em;
+    box-shadow:0 2px 0 rgba(0,0,0,.25); transition:transform .08s ease, box-shadow .08s ease, background .15s ease;
+  }
+  button:hover{background:#fff;}
+  button:active{transform:translateY(2px); box-shadow:0 0 0 rgba(0,0,0,.25);}
+  button.primary{background:var(--brass); color:#1b1408;}
+  button.primary:hover{background:#cf952f;}
+  button.ghost{background:transparent; color:var(--ivory); box-shadow:inset 0 0 0 1.5px rgba(250,247,239,.35);}
+  button.ghost:hover{background:rgba(250,247,239,.08);}
+  button:focus-visible{outline:2.5px solid var(--brass-soft); outline-offset:2px;}
+  .speed{display:flex; align-items:center; gap:9px; margin-left:auto;}
+  .speed label{font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:rgba(250,247,239,.6);}
+  input[type=range]{width:120px; accent-color:var(--brass-soft); cursor:pointer;}
+  input[type=range]:focus-visible{outline:2.5px solid var(--brass-soft); outline-offset:3px;}
+
+  .stage-caption{
+    margin-top:4px; font-size:14.5px; color:rgba(250,247,239,.7); font-style:italic;
+    max-width:60ch;
+  }
+
+  /* ---------- chart ---------- */
+  .section-head{margin-bottom:16px;}
+  .section-head h2{
+    font-family:var(--font-display); font-weight:600; font-size:clamp(22px,4vw,30px);
+    letter-spacing:-.01em; margin:0; line-height:1;
+  }
+  .section-head p{margin:8px 0 0; color:var(--ink-soft); font-size:15.5px;}
+  .chart-card{
+    background:var(--paper-2); border:1px solid var(--paper-edge);
+    border-radius:14px; padding:18px 16px 12px;
+  }
+  .chart-card canvas{display:block; width:100%; height:auto;}
+  .legend{
+    display:flex; gap:20px; flex-wrap:wrap; margin-top:10px; padding-left:4px;
+    font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); letter-spacing:.02em;
+  }
+  .legend span{display:flex; align-items:center; gap:7px;}
+  .swatch{width:16px; height:3px; border-radius:2px; display:inline-block;}
+  .swatch.est{background:var(--ink);}
+  .swatch.tgt{background:var(--brass); height:0; border-top:2px dashed var(--brass);}
+
+  /* ---------- explainer ---------- */
+  .explain p{margin:0 0 16px; max-width:64ch;}
+  .explain p:last-child{margin-bottom:0;}
+  .lead-cap{
+    float:left; font-family:var(--font-display); font-weight:600; font-size:52px;
+    line-height:.8; padding:6px 10px 0 0; color:var(--baize);
+  }
+  .cards-row{display:flex; gap:26px; flex-wrap:wrap; margin:6px 0 26px;}
+  .mini{display:flex; flex-direction:column; align-items:center; gap:10px;}
+  .mini .sides{display:flex; gap:6px;}
+  .side{
+    width:46px; height:64px; border-radius:8px; border:1.5px solid var(--paper-edge);
+    display:flex; align-items:center; justify-content:center; position:relative;
+    transition:transform .2s ease;
+  }
+  .side .dot{width:13px; height:13px; border-radius:50%;}
+  .side.black{background:#141210; border-color:#141210;}
+  .side.black .dot{background:#2f2c28;}
+  .side.white{background:var(--ivory);}
+  .side.white .dot{background:var(--paper-edge);}
+  .side.face-black{box-shadow:0 0 0 2.5px var(--brass), 0 6px 14px -6px rgba(0,0,0,.4);}
+  .mini .name{font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; color:var(--ink-soft); text-transform:uppercase;}
+  .mini .ways{font-family:var(--font-mono); font-size:12px; color:var(--brass);}
+
+  .count-line{
+    background:var(--paper-2); border:1px solid var(--paper-edge); border-radius:12px;
+    padding:18px 20px; margin:8px 0 24px; font-family:var(--font-mono);
+    font-size:15px; line-height:1.9; font-variant-numeric:tabular-nums;
+  }
+  .count-line .hi{color:var(--brass); font-weight:600;}
+  .count-line .res{display:block; margin-top:6px; padding-top:10px; border-top:1px solid var(--paper-edge); font-size:16px;}
+  .bayes{
+    font-family:var(--font-mono); font-size:14.5px; background:#1b1a18; color:#f1eee6;
+    border-radius:10px; padding:16px 18px; overflow-x:auto; margin:0 0 22px;
+    line-height:1.85; letter-spacing:.01em;
+  }
+  .bayes .b-acc{color:var(--brass-soft);}
+  .note{
+    border-left:3px solid var(--brass); padding:4px 0 4px 18px; margin:0;
+    color:var(--ink-soft); font-size:15.5px;
+  }
+  .note b{color:var(--ink); font-weight:600;}
+
+  footer{
+    border-top:1px solid var(--paper-edge); padding-top:22px; margin-top:6px;
+    font-family:var(--font-mono); font-size:12px; color:var(--ink-soft);
+    letter-spacing:.02em; line-height:1.7;
+  }
+  footer a{color:var(--brass);}
+
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
+
+  @media (max-width:560px){
+    .stage{height:200px;}
+    .bag{width:74px; height:80px;}
+    .bag-label{width:74px;}
+    .card{width:96px; height:135px;}
+    .peek{left:calc(50% + 72px);}
+    .counters{gap:10px;}
+    .speed{margin-left:0; width:100%; justify-content:space-between;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .card,.track .fill,.face{transition:none;}
+    .card.is-drawing{animation:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- masthead -->
+  <header class="masthead">
+    <p class="eyebrow">the three-card problem · after mcelreath</p>
+    <h1 class="title">Seeing <em>black</em></h1>
+    <p class="thesis">Pull a card from the bag and lay it down. If the face you see is black, the other side is black <b>two times out of three</b>. Watch it happen below — then see why it must.</p>
+  </header>
+
+  <!-- the table -->
+  <section class="table-panel" aria-label="Live simulation">
+    <div class="table-inner">
+      <div class="stage">
+        <div class="bag" aria-hidden="true">
+          <svg viewBox="0 0 96 104">
+            <path d="M20 38 Q12 64 18 84 Q24 100 48 100 Q72 100 78 84 Q84 64 76 38 Z"
+                  fill="#3a2f5a" opacity="0"/>
+            <path d="M20 38 Q12 64 18 84 Q24 100 48 100 Q72 100 78 84 Q84 64 76 38 Z"
+                  fill="#244A40" stroke="#1b3a31" stroke-width="2"/>
+            <path d="M20 38 Q48 30 76 38 L78 46 Q48 38 18 46 Z" fill="#1b3a31"/>
+            <path d="M24 38 Q28 24 48 22 Q68 24 72 38" fill="none" stroke="#caa25a" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="48" cy="22" r="3.4" fill="#caa25a"/>
+          </svg>
+          <span class="bag-label">the bag</span>
+        </div>
+
+        <div id="card" class="card" data-up="W" aria-hidden="true">
+          <div class="face face--white"><span class="pip"></span></div>
+          <div class="face face--black"><span class="pip"></span></div>
+        </div>
+
+        <div id="peek" class="peek" aria-hidden="true">
+          <span class="pk-label">reverse</span>
+          <span id="peekCard" class="pk-card b"></span>
+          <span id="peekVerdict" class="pk-verdict hit">both black</span>
+        </div>
+
+        <div id="discard" class="discard" style="opacity:0" aria-hidden="true">
+          <span class="x">✕</span><br>white face<br>not counted
+        </div>
+      </div>
+
+      <p class="stage-caption" id="caption">Press <b>Draw one</b> to pull a card, or <b>Run</b> to let the experiment go.</p>
+
+      <!-- counters -->
+      <div class="counters" role="group" aria-label="Tallies">
+        <div class="counter"><div class="k">draws</div><div class="v" id="cDraws">0</div></div>
+        <div class="counter"><div class="k">black faces seen</div><div class="v" id="cBlack">0</div></div>
+        <div class="counter"><div class="k">both sides black</div><div class="v" id="cHit">0</div></div>
+      </div>
+
+      <!-- estimate -->
+      <div class="estimate">
+        <div class="row">
+          <span class="lab">estimate — back is black, given a black face</span>
+          <span class="num" id="estNum">—</span>
+        </div>
+        <div class="track" aria-hidden="true">
+          <div class="fill" id="fill"></div>
+          <div class="target"></div>
+        </div>
+        <p class="target-note">target&nbsp;&nbsp;2⁄3 = 0.66667 &nbsp;·&nbsp; <span id="gap">awaiting first black face</span></p>
+      </div>
+      <p class="sr-only" aria-live="polite" id="srStatus"></p>
+
+      <!-- controls -->
+      <div class="controls">
+        <button class="primary" id="btnDraw">Draw one</button>
+        <button class="ghost" id="btnRun">Run</button>
+        <button class="ghost" id="btnBatch">Add 1,000</button>
+        <button class="ghost" id="btnReset">Reset</button>
+        <span class="speed">
+          <label for="speed">speed</label>
+          <input type="range" id="speed" min="0" max="100" value="62" aria-label="Animation speed" />
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- chart -->
+  <section class="chart-section">
+    <div class="section-head">
+      <h2>Convergence</h2>
+      <p>The running estimate against the number of black faces seen. More evidence, less wobble — it settles onto two-thirds.</p>
+    </div>
+    <div class="chart-card">
+      <canvas id="chart" width="1600" height="640" role="img"
+        aria-label="Line chart of the running estimate converging toward two-thirds as black faces accumulate."></canvas>
+      <div class="legend">
+        <span><i class="swatch est"></i> running estimate</span>
+        <span><i class="swatch tgt"></i> 2⁄3 = 0.6667</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- explainer -->
+  <section class="explain">
+    <div class="section-head">
+      <h2>Why two-thirds — count the ways</h2>
+      <p>The simulation tests the claim. This proves it.</p>
+    </div>
+
+    <p><span class="lead-cap">T</span>hree cards go in the bag. One is black on both sides, one is black on one side and white on the other, and one is white on both. McElreath's trick is to stop reasoning about <em>cards</em> and start counting <em>ways the data could arise</em> — every face that could have landed in front of you, each equally likely.</p>
+
+    <div class="cards-row" aria-hidden="true">
+      <div class="mini">
+        <div class="sides"><div class="side black"><span class="dot"></span></div><div class="side black"><span class="dot"></span></div></div>
+        <div class="name">black · black</div>
+        <div class="ways">2 ways to show black</div>
+      </div>
+      <div class="mini">
+        <div class="sides"><div class="side black"><span class="dot"></span></div><div class="side white"><span class="dot"></span></div></div>
+        <div class="name">black · white</div>
+        <div class="ways">1 way to show black</div>
+      </div>
+      <div class="mini">
+        <div class="sides"><div class="side white"><span class="dot"></span></div><div class="side white"><span class="dot"></span></div></div>
+        <div class="name">white · white</div>
+        <div class="ways">0 ways to show black</div>
+      </div>
+    </div>
+
+    <p>A black face is staring up at you. Which faces could it be? Count them: the two-black card offers <span style="color:var(--brass)">two</span> black faces, the mixed card offers <span style="color:var(--brass)">one</span>, the white card offers none. That's three equally likely black faces you might be looking at — and on two of them, the hidden side is also black.</p>
+
+    <div class="count-line" aria-hidden="true">
+      ways to see a black face&nbsp; = &nbsp;<span class="hi">2</span> + <span class="hi">1</span> + 0 &nbsp;=&nbsp; <span class="hi">3</span><br>
+      …of which the reverse is also black&nbsp; = &nbsp;<span class="hi">2</span>
+      <span class="res">P(reverse black | face black) = <span class="hi">2 / 3</span> ≈ 0.667</span>
+    </div>
+
+    <p>The same answer falls out of Bayes' rule, if you prefer the machinery. The black-on-both card is the only one guaranteed to show black, so once you see black it claims two-thirds of the posterior weight:</p>
+
+    <div class="bayes" aria-hidden="true">P(BB | black) = <span class="b-acc">P(black | BB)·P(BB)</span> / P(black)
+            = (1 · ⅓) / (½)
+            = <span class="b-acc">2⁄3</span>
+
+where  P(black) = ⅓·1 + ⅓·½ + ⅓·0 = ½</div>
+
+    <p class="note"><b>Mind the direction.</b> Every white face the simulation throws away is doing real work: it shows that we're asking <em>P(reverse is black | face is black)</em>, not the other way round. Swapping the two — reading "the face is black" as if it pinned down the card — is the prosecutor's fallacy. The discard pile is the conditioning made visible.</p>
+  </section>
+
+  <footer>
+    A live demonstration of Bertrand's box / the three-card problem, framed after Richard McElreath's <em>Statistical Rethinking</em>.<br>
+    The experiment corroborates; the counting proves. Both land on 2⁄3.
+  </footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const CARDS = [['B','B'], ['B','W'], ['W','W']];
+  const TARGET = 2/3;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- state ----
+  let draws = 0, blackFaces = 0, hit = 0;
+  let running = false, timer = null;
+  let chartPts = [];        // {x: blackFaces, y: estimate}
+  let stride = 1, sinceSample = 0;
+
+  // ---- elements ----
+  const $ = id => document.getElementById(id);
+  const card = $('card'), peek = $('peek'), peekCard = $('peekCard'),
+        peekVerdict = $('peekVerdict'), discard = $('discard'), caption = $('caption');
+  const cDraws = $('cDraws'), cBlack = $('cBlack'), cHit = $('cHit'),
+        estNum = $('estNum'), fill = $('fill'), gap = $('gap'), srStatus = $('srStatus');
+  const btnDraw = $('btnDraw'), btnRun = $('btnRun'), btnBatch = $('btnBatch'),
+        btnReset = $('btnReset'), speed = $('speed');
+  const canvas = $('chart'), ctx = canvas.getContext('2d');
+
+  // ---- core trial ----
+  function trial(){
+    const c = CARDS[(Math.random()*3)|0];
+    const s = (Math.random()*2)|0;
+    const shown = c[s], other = c[1-s];
+    draws++;
+    if (shown === 'B'){ blackFaces++; if (other === 'B') hit++; }
+    return {shown, other, black: shown === 'B', both: shown === 'B' && other === 'B'};
+  }
+
+  // adaptive down-sampling so the chart array stays small over huge N
+  function sample(){
+    sinceSample++;
+    if (sinceSample >= stride){
+      sinceSample = 0;
+      chartPts.push({x: blackFaces, y: hit/blackFaces});
+      if (chartPts.length > 900){
+        chartPts = chartPts.filter((_, i) => i % 2 === 0);
+        stride *= 2;
+      }
+    }
+  }
+
+  // ---- rendering ----
+  function fmt(n){ return n.toLocaleString('en-US'); }
+
+  function paintCounters(){
+    cDraws.textContent = fmt(draws);
+    cBlack.textContent = fmt(blackFaces);
+    cHit.textContent   = fmt(hit);
+    if (blackFaces === 0){
+      estNum.textContent = '—';
+      fill.style.width = '0%';
+      gap.textContent = 'awaiting first black face';
+    } else {
+      const est = hit/blackFaces;
+      estNum.textContent = est.toFixed(4);
+      fill.style.width = (est*100).toFixed(2) + '%';
+      const d = est - TARGET;
+      gap.textContent = (d>=0?'+':'−') + Math.abs(d).toFixed(4) + ' from target';
+    }
+  }
+
+  function announce(){
+    if (blackFaces === 0) return;
+    srStatus.textContent =
+      `${fmt(blackFaces)} black faces, estimate ${(hit/blackFaces).toFixed(4)}, target 0.6667.`;
+  }
+
+  // visualise the most recent trial on the card
+  function show(t){
+    card.classList.remove('is-drawing');
+    void card.offsetWidth;            // restart animation
+    if (!reduceMotion) card.classList.add('is-drawing');
+    card.setAttribute('data-up', t.shown);
+
+    if (t.black){
+      discard.style.opacity = '0';
+      peekCard.className = 'pk-card ' + (t.both ? 'b' : 'w');
+      peekVerdict.className = 'pk-verdict ' + (t.both ? 'hit' : 'miss');
+      peekVerdict.textContent = t.both ? 'both black' : 'back is white';
+      peek.classList.add('show');
+      caption.innerHTML = t.both
+        ? 'Black face up — and <b>black behind it</b>. Counts toward two-thirds.'
+        : 'Black face up — but <b>white behind it</b>. Still a black face, still counted.';
+    } else {
+      peek.classList.remove('show');
+      discard.style.opacity = '1';
+      caption.innerHTML = 'White face up — <b>discarded</b>. We only judge cards that show black.';
+    }
+  }
+
+  function drawChart(){
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || 800;
+    const cssH = Math.round(cssW * 0.4);
+    if (canvas.width !== Math.round(cssW*dpr) || canvas.height !== Math.round(cssH*dpr)){
+      canvas.width = Math.round(cssW*dpr);
+      canvas.height = Math.round(cssH*dpr);
+      canvas.style.height = cssH + 'px';
+    }
+    const W = canvas.width, H = canvas.height;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,W,H);
+    ctx.scale(dpr,dpr);
+    const w = W/dpr, h = H/dpr;
+
+    const padL = 46, padR = 14, padT = 14, padB = 30;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+    const yToPx = v => padT + (1 - v) * plotH;
+    const maxX = Math.max(20, blackFaces);
+    const xToPx = x => padL + (x/maxX) * plotW;
+
+    // gridlines + y labels
+    ctx.font = '12px "IBM Plex Mono", monospace';
+    ctx.textBaseline = 'middle';
+    const ticks = [{v:1,l:'1.0'},{v:TARGET,l:'⅔'},{v:0.5,l:'0.5'},{v:1/3,l:'⅓'},{v:0,l:'0'}];
+    ticks.forEach(t => {
+      const y = yToPx(t.v);
+      const isTarget = Math.abs(t.v - TARGET) < 1e-9;
+      ctx.strokeStyle = isTarget ? 'rgba(192,137,44,.0)' : 'rgba(27,26,24,.10)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w-padR, y); ctx.stroke();
+      ctx.fillStyle = isTarget ? '#C0892C' : '#8c897f';
+      ctx.textAlign = 'right';
+      ctx.fillText(t.l, padL-10, y);
+    });
+
+    // target dashed line on top
+    const ty = yToPx(TARGET);
+    ctx.strokeStyle = '#C0892C';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7,6]);
+    ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(w-padR, ty); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // x axis baseline + label
+    ctx.strokeStyle = 'rgba(27,26,24,.25)';
+    ctx.beginPath(); ctx.moveTo(padL, yToPx(0)); ctx.lineTo(w-padR, yToPx(0)); ctx.stroke();
+    ctx.fillStyle = '#8c897f';
+    ctx.textAlign = 'center';
+    ctx.fillText('black faces seen  →  ' + fmt(blackFaces), padL + plotW/2, h - 9);
+
+    // estimate polyline
+    if (chartPts.length > 0){
+      ctx.strokeStyle = '#1B1A18';
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      chartPts.forEach((p,i) => {
+        const X = xToPx(p.x), Y = yToPx(p.y);
+        i === 0 ? ctx.moveTo(X,Y) : ctx.lineTo(X,Y);
+      });
+      // extend to the current point
+      const X = xToPx(blackFaces), Y = yToPx(hit/blackFaces);
+      ctx.lineTo(X,Y);
+      ctx.stroke();
+      // current dot
+      ctx.fillStyle = '#C0892C';
+      ctx.beginPath(); ctx.arc(X, Y, 3.2, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // throttle chart redraws during fast runs
+  let pendingDraw = false;
+  function scheduleChart(){
+    if (pendingDraw) return;
+    pendingDraw = true;
+    requestAnimationFrame(() => { pendingDraw = false; drawChart(); });
+  }
+
+  // ---- one animated step ----
+  function step(animate = true){
+    const t = trial();
+    if (blackFaces > 0) sample();
+    if (animate) show(t);
+    paintCounters();
+    scheduleChart();
+  }
+
+  // ---- run loop ----
+  function delay(){
+    // slider 0..100 -> 620ms (slow) .. 45ms (fast)
+    const f = +speed.value / 100;
+    return Math.round(620 - f * 575);
+  }
+  function tick(){
+    if (!running) return;
+    step(true);
+    announce();
+    timer = setTimeout(tick, delay());
+  }
+  function setRunning(on){
+    running = on;
+    btnRun.textContent = on ? 'Pause' : 'Run';
+    btnRun.classList.toggle('primary', on);
+    btnRun.classList.toggle('ghost', !on);
+    btnDraw.disabled = on;
+    btnBatch.disabled = on;
+    btnDraw.style.opacity = on ? .5 : 1;
+    btnBatch.style.opacity = on ? .5 : 1;
+    if (on) tick(); else clearTimeout(timer);
+  }
+
+  // ---- batch (no animation) ----
+  function batch(n){
+    for (let k=0;k<n;k++){
+      trial();
+      if (blackFaces > 0) sample();
+    }
+    paintCounters();
+    drawChart();
+    announce();
+    caption.innerHTML = 'Added <b>' + fmt(n) + '</b> draws in one go — watch the curve flatten onto 2⁄3.';
+  }
+
+  function reset(){
+    setRunning(false);
+    draws = 0; blackFaces = 0; hit = 0;
+    chartPts = []; stride = 1; sinceSample = 0;
+    card.setAttribute('data-up','W');
+    peek.classList.remove('show');
+    discard.style.opacity = '0';
+    caption.innerHTML = 'Press <b>Draw one</b> to pull a card, or <b>Run</b> to let the experiment go.';
+    srStatus.textContent = 'Reset. No draws yet.';
+    paintCounters();
+    drawChart();
+  }
+
+  // ---- wire up ----
+  btnDraw.addEventListener('click', () => { if (!running) step(true); });
+  btnRun.addEventListener('click', () => setRunning(!running));
+  btnBatch.addEventListener('click', () => { if (!running) batch(1000); });
+  btnReset.addEventListener('click', reset);
+  window.addEventListener('resize', () => scheduleChart());
+
+  // init
+  paintCounters();
+  drawChart();
+})();
+</script>
+</body>
+</html>
